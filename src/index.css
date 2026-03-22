@@ -102,3 +102,12 @@ body::before {
 }
 
 .recharts-tooltip-wrapper { outline: none !important; }
+
+/* ── Responsive utilities ──────────────────────────────────────── */
+@media (max-width: 480px) {
+  .hide-xs { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+}
