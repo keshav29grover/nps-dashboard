@@ -1,0 +1,31 @@
+name: Daily NPS NAV WhatsApp Alert
+
+on:
+  schedule:
+    # 9:00 AM IST = 3:30 AM UTC  (IST is UTC+5:30)
+    - cron: '30 3 * * 1-5'   # Mon–Fri only (markets closed on weekends)
+
+  # Also allows manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  send-nav-alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install axios
+
+      - name: Run NAV alert script
+        env:
+          WA_PHONE:  ${{ secrets.WA_PHONE }}
+          WA_APIKEY: ${{ secrets.WA_APIKEY }}
+        run: node scripts/sendNAVAlert.js
