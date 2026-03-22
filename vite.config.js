@@ -9,10 +9,10 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api/nps': {
+      '/proxy/nps': {
         target:       'https://npsnav.in',
         changeOrigin: true,
-        rewrite:      (path) => path.replace(/^\/api\/nps/, ''),
+        rewrite:      (path) => path.replace(/^\/proxy\/nps/, ''),
       },
     },
   },

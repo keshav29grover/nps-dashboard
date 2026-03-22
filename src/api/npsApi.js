@@ -1,17 +1,8 @@
 import axios from 'axios'
 
-// Proxied via vite.config.js (dev) or vercel.json rewrites (prod)
-// /api/nps  →  https://npsnav.in
+// /proxy/nps  →  https://npsnav.in  (both dev and prod)
+const nps = axios.create({ baseURL: '/proxy/nps' })
 
-const nps = axios.create({ baseURL: '/api/nps' })
-
-// ── Correct npsnav.in endpoints ───────────────────────────────────────────────
-
-/**
- * All 151 NPS scheme codes + names.
- * Endpoint: GET /api/schemes
- * Returns: { data: [["SM001001", "SBI PENSION FUND SCHEME - CENTRAL GOVT"], ...], metadata: {...} }
- */
 export const fetchSchemeList = () =>
   nps.get('/api/schemes').then((r) => {
     const rows = r.data?.data ?? []
@@ -22,38 +13,21 @@ export const fetchSchemeList = () =>
     }))
   })
 
-/**
- * Single scheme NAV — plain text number.
- * Endpoint: GET /api/{schemeCode}
- * e.g. /api/SM001001  →  "46.7686"
- */
 export const fetchSingleNAV = (schemeCode) =>
   nps.get(`/api/${schemeCode}`).then((r) => parseFloat(r.data))
 
-/**
- * Historical daily NAV for a scheme.
- * Endpoint: GET /api/historical/{schemeCode}
- * Returns: { data: [{ date: "19-05-2025", nav: 28.3 }, ...], metadata: {...} }
- */
 export const fetchNAVHistory = (schemeCode) =>
   nps.get(`/api/historical/${schemeCode}`).then((r) => {
     const rows = r.data?.data ?? []
     return rows
-      .map((d) => ({
-        date: normDate(d.date),
-        nav:  parseFloat(d.nav),
-      }))
+      .map((d) => ({ date: normDate(d.date), nav: parseFloat(d.nav) }))
       .filter((d) => d.date && !isNaN(d.nav))
       .sort((a, b) => (a.date > b.date ? 1 : -1))
   })
 
-// ── PFM filter — change this to show a different fund manager ─────────────────
-// Set to null to show all fund managers.
+// Set to null to show all fund managers
 const PFM_FILTER = 'HDFC'
 
-/**
- * Fetch scheme NAVs — filtered to PFM_FILTER if set.
- */
 export const fetchAllNAVs = async () => {
   const allSchemes = await fetchSchemeList()
 

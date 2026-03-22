@@ -1,12 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/nps/:path*",
-      "destination": "https://npsnav.in/api/:path*"
-    },
-    {
-      "source": "/api/pb/:path*",
-      "destination": "https://nps.purifiedbytes.com/api/:path*"
+      "source": "/proxy/nps/:path*",
+      "destination": "https://npsnav.in/:path*"
     },
     {
       "source": "/(.*)",
