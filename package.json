@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build": "node build-sw.js && vite build",
+    "preview": "vite preview",
+    "nav-alert": "node scripts/sendNAVAlert.js"
   },
   "dependencies": {
     "axios": "^1.13.6",
