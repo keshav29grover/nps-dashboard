@@ -9,39 +9,46 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 )
 
-// ── Service Worker registration with auto-update ──────────────────────────────
+// ── Service Worker with zero-friction auto-update ─────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('/sw.js')
-      console.log('[SW] Registered')
 
-      // Check for updates every 60 seconds
-      setInterval(() => reg.update(), 60 * 1000)
+      // Helper — tells a SW to activate immediately without waiting
+      const skipWaiting = (sw) => sw.postMessage('SKIP_WAITING')
 
-      // When a new SW is waiting — auto-apply it
+      // If a new SW is already waiting when the page loads
+      // (tab was open during a deploy) — activate it right away
+      if (reg.waiting) {
+        skipWaiting(reg.waiting)
+      }
+
+      // When a new SW finishes installing — activate immediately
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing
         if (!newSW) return
-
         newSW.addEventListener('statechange', () => {
           if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[SW] New version available — reloading')
-            // Tell new SW to skip waiting and take over
-            newSW.postMessage('SKIP_WAITING')
+            skipWaiting(newSW)
           }
         })
       })
 
-      // When SW takes control — reload the page to get fresh assets
+      // When the new SW takes control — reload once, silently
+      // At this point the new assets are already in cache so the
+      // reload is instant — user sees no blank screen or flash
       let refreshing = false
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
           refreshing = true
-          console.log('[SW] Controller changed — reloading for fresh assets')
           window.location.reload()
         }
       })
+
+      // Poll for updates every 30 seconds so the reload happens
+      // sooner rather than the default browser interval (~24 hours)
+      setInterval(() => reg.update(), 30 * 1000)
 
     } catch (err) {
       console.error('[SW] Registration failed:', err)
