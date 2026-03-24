@@ -2,9 +2,8 @@ name: Daily NPS NAV Push Notification
 
 on:
   schedule:
-    # 11:15 PM IST = 17:45 UTC  (IST is UTC+5:30)
-    - cron: '45 17 * * 1-5'    # Mon–Fri only
-  workflow_dispatch:             # manual trigger for testing
+    - cron: '45 17 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   send-nav-alert:
@@ -22,10 +21,16 @@ jobs:
       - name: Install dependencies
         run: npm install axios web-push
 
+      - name: Check script exists
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in scripts/:"
+          ls -la scripts/
+
       - name: Send push notification
         env:
           VAPID_PUBLIC_KEY:  ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_EMAIL:       ${{ secrets.VAPID_EMAIL }}
           PUSH_SUBSCRIPTION: ${{ secrets.PUSH_SUBSCRIPTION }}
-        run: node scripts/sendNAVAlert.js
+        run: node --experimental-vm-modules scripts/sendNAVAlert.js
