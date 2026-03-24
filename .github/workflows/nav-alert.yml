@@ -1,12 +1,10 @@
-name: Daily NPS NAV WhatsApp Alert
+name: Daily NPS NAV Push Notification
 
 on:
   schedule:
-    # 9:00 AM IST = 3:30 AM UTC  (IST is UTC+5:30)
-    - cron: '30 3 * * 1-5'   # Mon–Fri only (markets closed on weekends)
-
-  # Also allows manual trigger from GitHub Actions tab
-  workflow_dispatch:
+    # 11:15 PM IST = 17:45 UTC  (IST is UTC+5:30)
+    - cron: '45 17 * * 1-5'    # Mon–Fri only
+  workflow_dispatch:             # manual trigger for testing
 
 jobs:
   send-nav-alert:
@@ -22,10 +20,12 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install axios
+        run: npm install axios web-push
 
-      - name: Run NAV alert script
+      - name: Send push notification
         env:
-          WA_PHONE:  ${{ secrets.WA_PHONE }}
-          WA_APIKEY: ${{ secrets.WA_APIKEY }}
+          VAPID_PUBLIC_KEY:  ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_EMAIL:       ${{ secrets.VAPID_EMAIL }}
+          PUSH_SUBSCRIPTION: ${{ secrets.PUSH_SUBSCRIPTION }}
         run: node scripts/sendNAVAlert.js

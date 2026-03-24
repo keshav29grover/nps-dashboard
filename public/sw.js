@@ -1,73 +1,92 @@
-// sw.js — Smart service worker with auto-update on new deploy
+const VERSION = '__SW_VERSION__'
+const CACHE   = `npsnav-${VERSION}`
+const SHELL   = ['/']
 
-const VERSION   = '__SW_VERSION__'   // injected by build — changes every deploy
-const CACHE     = `npsnav-${VERSION}`
-const SHELL     = ['/']              // only cache the shell, not assets
-
-// ── Install: cache shell only ─────────────────────────────────────────────────
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
       .then(c => c.addAll(SHELL))
-      .then(() => self.skipWaiting())   // activate immediately, don't wait
+      .then(() => self.skipWaiting())
   )
 })
 
-// ── Activate: delete ALL old caches ──────────────────────────────────────────
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys
-          .filter(k => k !== CACHE)     // delete everything except current
-          .map(k => {
-            console.log('[SW] Deleting old cache:', k)
-            return caches.delete(k)
-          })
+        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
       ))
-      .then(() => self.clients.claim()) // take control of all open tabs
+      .then(() => self.clients.claim())
   )
 })
 
-// ── Fetch: network first for everything ──────────────────────────────────────
-// Network-first means users ALWAYS get fresh code after a deploy.
-// Only falls back to cache if completely offline.
 self.addEventListener('fetch', e => {
   const { request } = e
   const url = new URL(request.url)
 
-  // Skip non-GET and cross-origin requests
   if (request.method !== 'GET' || url.origin !== location.origin) return
-
-  // Skip Vercel internals
   if (url.pathname.startsWith('/_vercel')) return
-
-  // API calls — network only, no caching (always want fresh NAV data)
   if (url.pathname.startsWith('/proxy/')) {
     e.respondWith(fetch(request))
     return
   }
 
-  // Everything else — network first, cache fallback
   e.respondWith(
     fetch(request)
       .then(res => {
-        // Only cache valid responses
         if (res.ok && res.status === 200) {
           const clone = res.clone()
           caches.open(CACHE).then(c => c.put(request, clone))
         }
         return res
       })
-      .catch(() => {
-        // Offline fallback — serve from cache
-        return caches.match(request)
-          .then(cached => cached || caches.match('/'))
+      .catch(() =>
+        caches.match(request).then(cached => cached || caches.match('/'))
+      )
+  )
+})
+
+// ── Push notification handler ─────────────────────────────────────────────────
+self.addEventListener('push', e => {
+  if (!e.data) return
+
+  const data = e.data.json()
+
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body:    data.body,
+      icon:    '/icons/icon-192.png',
+      badge:   '/icons/icon-32.png',
+      tag:     'nav-update',          // replaces previous notification
+      renotify: true,
+      data:    { url: data.url || '/' },
+      actions: [
+        { action: 'open',    title: 'Open App' },
+        { action: 'dismiss', title: 'Dismiss'  },
+      ],
+    })
+  )
+})
+
+// ── Notification click handler ────────────────────────────────────────────────
+self.addEventListener('notificationclick', e => {
+  e.notification.close()
+
+  if (e.action === 'dismiss') return
+
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(list => {
+        // If app is already open — focus it
+        const existing = list.find(c => c.url.includes(location.origin))
+        if (existing) return existing.focus()
+        // Otherwise open a new window
+        return clients.openWindow('/')
       })
   )
 })
 
-// ── Message: force update from app ───────────────────────────────────────────
+// ── Skip waiting on message ───────────────────────────────────────────────────
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting()
 })

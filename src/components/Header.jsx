@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import NotificationBell from './NotificationBell'
 
 export default function Header({ lastUpdated, onRefresh, loading, theme, onToggleTheme }) {
   const isDark = theme === 'dark'
@@ -32,7 +33,7 @@ export default function Header({ lastUpdated, onRefresh, loading, theme, onToggl
           </div>
         </div>
 
-        {/* Live pill — hidden on very small screens */}
+        {/* Live pill */}
         <div className="hide-xs" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 20 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'glow-pulse 2s ease-in-out infinite', flexShrink: 0 }} />
           <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>LIVE</span>
@@ -50,6 +51,9 @@ export default function Header({ lastUpdated, onRefresh, loading, theme, onToggl
               </div>
             </div>
           )}
+
+          {/* Bell — push notifications */}
+          <NotificationBell />
 
           {/* Theme toggle */}
           <button
@@ -71,7 +75,7 @@ export default function Header({ lastUpdated, onRefresh, loading, theme, onToggl
             )}
           </button>
 
-          {/* Refresh — icon only on mobile, text on desktop */}
+          {/* Refresh */}
           <button
             onClick={onRefresh}
             disabled={loading}

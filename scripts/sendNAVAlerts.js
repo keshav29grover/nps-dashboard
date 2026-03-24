@@ -1,74 +1,64 @@
 // scripts/sendNAVAlert.js
-// Run manually:  node scripts/sendNAVAlert.js
-// Run via cron:  GitHub Actions calls this every day at 9 AM IST
+// Runs at 11:15 PM IST via GitHub Actions
+// Fetches latest HDFC NAV and sends Web Push notification
 
 import axios from 'axios'
+import webpush from 'web-push'
 
-const CONFIG = {
-  phone:  process.env.WA_PHONE,   // e.g. 919876543210
-  apiKey: process.env.WA_APIKEY,  // from callmebot
-  pfm:    'HDFC',
-}
+// ── Config from GitHub Secrets ────────────────────────────────────────────────
+webpush.setVapidDetails(
+  process.env.VAPID_EMAIL,
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+)
 
-// ── 1. Fetch all scheme codes ─────────────────────────────────────────────────
+const PUSH_SUBSCRIPTION = JSON.parse(process.env.PUSH_SUBSCRIPTION)
+
+// ── Fetch HDFC schemes ────────────────────────────────────────────────────────
 async function fetchHDFCSchemes() {
   const res  = await axios.get('https://npsnav.in/api/schemes')
   const rows = res.data?.data ?? []
-
   return rows
     .map(([code, name]) => ({ code, name }))
-    .filter(s => s.name.toUpperCase().includes(CONFIG.pfm))
+    .filter(s => s.name.toUpperCase().includes('HDFC'))
 }
 
-// ── 2. Fetch NAV for one scheme ───────────────────────────────────────────────
 async function fetchNAV(code) {
   const res = await axios.get(`https://npsnav.in/api/${code}`)
   return parseFloat(res.data)
 }
 
-// ── 3. Build WhatsApp message ─────────────────────────────────────────────────
-function buildMessage(schemes, date) {
-  const header = `*NPS HDFC NAV Update — ${date}*\n\n`
-
+// ── Build notification payload ────────────────────────────────────────────────
+function buildPayload(schemes, date) {
   const lines = schemes
-    .map(s => `• ${s.name}\n  NAV: *₹${s.nav.toFixed(4)}*`)
-    .join('\n\n')
+    .map(s => `${s.name.replace('HDFC PENSION MANAGEMENT - ', '')}: ₹${s.nav.toFixed(4)}`)
+    .join('\n')
 
-  return header + lines
-}
-
-// ── 4. Send via Callmebot ─────────────────────────────────────────────────────
-async function sendWhatsApp(message) {
-  const encoded = encodeURIComponent(message)
-  const url = `https://api.callmebot.com/whatsapp.php?phone=${CONFIG.phone}&text=${encoded}&apikey=${CONFIG.apiKey}`
-  const res = await axios.get(url)
-  console.log('WhatsApp response:', res.data)
+  return JSON.stringify({
+    title: `HDFC NAV — ${date}`,
+    body:  lines,
+    url:   '/',
+  })
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   const today = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata'
+    day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata',
   })
 
   console.log(`Fetching HDFC NAVs for ${today}...`)
 
   const schemes = await fetchHDFCSchemes()
-  console.log(`Found ${schemes.length} HDFC schemes`)
-
-  // Fetch all NAVs in parallel
   const withNAV = await Promise.all(
-    schemes.map(async s => ({
-      ...s,
-      nav: await fetchNAV(s.code)
-    }))
+    schemes.map(async s => ({ ...s, nav: await fetchNAV(s.code) }))
   )
 
-  const message = buildMessage(withNAV, today)
-  console.log('\nMessage preview:\n', message)
+  const payload = buildPayload(withNAV, today)
+  console.log('Sending push notification...')
 
-  await sendWhatsApp(message)
-  console.log('✓ WhatsApp alert sent!')
+  await webpush.sendNotification(PUSH_SUBSCRIPTION, payload)
+  console.log('✓ Push notification sent!')
 }
 
 main().catch(err => {
