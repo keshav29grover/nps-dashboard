@@ -2,6 +2,7 @@
 // Handles asking permission, subscribing, and saving the subscription
 
 import { useState, useEffect } from 'react'
+import { removePushSubscription, savePushSubscription } from '../api/pushApi'
 
 // This must match the VAPID public key in your GitHub Secrets
 // Replace this with your actual generated public key
@@ -20,16 +21,25 @@ export function usePushNotifications() {
   const [loading,       setLoading]       = useState(false)
   const [error,         setError]         = useState(null)
 
+  const syncSubscription = async (sub) => {
+    if (!sub) return
+    await savePushSubscription(sub.toJSON())
+    setSubscription(sub)
+    setPermission(Notification.permission)
+    localStorage.setItem('nps-push-sub', JSON.stringify(sub))
+  }
+
   // Check existing subscription on mount
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
     navigator.serviceWorker.ready.then(reg => {
-      reg.pushManager.getSubscription().then(sub => {
+      reg.pushManager.getSubscription().then(async (sub) => {
         if (sub) {
-          setSubscription(sub)
-          setPermission('granted')
-          // Save to localStorage so we know we're subscribed
-          localStorage.setItem('nps-push-sub', JSON.stringify(sub))
+          try {
+            await syncSubscription(sub)
+          } catch (err) {
+            setError(err.message)
+          }
         }
       })
     })
@@ -53,21 +63,20 @@ export function usePushNotifications() {
       // Get SW registration
       const reg = await navigator.serviceWorker.ready
 
+      const existingSub = await reg.pushManager.getSubscription()
+      if (existingSub) {
+        await syncSubscription(existingSub)
+        setLoading(false)
+        return
+      }
+
       // Subscribe to push
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       })
 
-      setSubscription(sub)
-
-      // Save subscription to localStorage
-      // In production you'd send this to your own backend
-      // For now we save locally and GitHub Actions reads from a fixed subscription
-      localStorage.setItem('nps-push-sub', JSON.stringify(sub))
-
-      console.log('[Push] Subscribed:', JSON.stringify(sub))
-      console.log('[Push] Copy the above and add as PUSH_SUBSCRIPTION secret in GitHub')
+      await syncSubscription(sub)
 
       setLoading(false)
     } catch (err) {
@@ -78,10 +87,20 @@ export function usePushNotifications() {
 
   const unsubscribe = async () => {
     if (!subscription) return
-    await subscription.unsubscribe()
-    setSubscription(null)
-    setPermission('default')
-    localStorage.removeItem('nps-push-sub')
+    setLoading(true)
+    setError(null)
+
+    try {
+      await removePushSubscription(subscription.toJSON())
+      await subscription.unsubscribe()
+      setSubscription(null)
+      setPermission('default')
+      localStorage.removeItem('nps-push-sub')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const isSupported  = 'serviceWorker' in navigator && 'PushManager' in window
