@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-// /proxy/nps  →  https://npsnav.in  (both dev and prod)
+// /proxy/nps -> https://npsnav.in (both dev and prod)
 const nps = axios.create({ baseURL: '/proxy/nps' })
 
 export const fetchSchemeList = () =>
@@ -9,12 +9,31 @@ export const fetchSchemeList = () =>
     return rows.map(([code, name]) => ({
       'Scheme Code': code,
       'Scheme Name': name,
-      'PFM Name':    derivePFM(name),
+      'PFM Name': derivePFM(name),
     }))
   })
 
 export const fetchSingleNAV = (schemeCode) =>
   nps.get(`/api/${schemeCode}`).then((r) => parseFloat(r.data))
+
+export const fetchLatestNAVs = () =>
+  nps.get('/api/latest').then((r) => {
+    const rows = r.data?.data ?? []
+    const metadata = {
+      ...r.data?.metadata,
+      lastUpdated: normDate(r.data?.metadata?.lastUpdated),
+    }
+
+    return {
+      data: rows.map((row) => ({
+        ...row,
+        NAV: parseFloat(row.NAV),
+        'PFM Name': row['PFM Name'] ?? derivePFM(row['Scheme Name']),
+        'Last Updated': normDate(row['Last Updated'] ?? metadata.lastUpdated),
+      })),
+      metadata,
+    }
+  })
 
 export const fetchNAVHistory = (schemeCode) =>
   nps.get(`/api/historical/${schemeCode}`).then((r) => {
@@ -29,32 +48,24 @@ export const fetchNAVHistory = (schemeCode) =>
 const PFM_FILTER = 'HDFC'
 
 export const fetchAllNAVs = async () => {
-  const allSchemes = await fetchSchemeList()
+  const { data, metadata } = await fetchLatestNAVs()
 
-  const schemes = PFM_FILTER
-    ? allSchemes.filter(s => s['PFM Name'].toUpperCase().includes(PFM_FILTER.toUpperCase()))
-    : allSchemes
+  const filtered = PFM_FILTER
+    ? data.filter((s) => s['PFM Name']?.toUpperCase().includes(PFM_FILTER.toUpperCase()))
+    : data
 
-  const results = await Promise.allSettled(
-    schemes.map(async (s) => {
-      const nav = await fetchSingleNAV(s['Scheme Code'])
-      return { ...s, NAV: nav, 'Last Updated': new Date().toLocaleDateString('en-IN') }
-    })
-  )
-
-  return results
-    .filter((r) => r.status === 'fulfilled')
-    .map((r) => r.value)
+  return {
+    data: filtered,
+    metadata,
+  }
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function normDate(str = '') {
   if (!str) return ''
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
   const parts = str.split('-')
   if (parts.length === 3 && parts[2].length === 4) {
-    return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`
+    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
   }
   return str
 }

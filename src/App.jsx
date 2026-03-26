@@ -147,6 +147,8 @@ export default function App() {
             <NAVChart
               schemeCode={selectedScheme['Scheme Code']}
               schemeName={selectedScheme['Scheme Name']}
+              latestNAV={selectedScheme.NAV}
+              latestDate={selectedScheme['Last Updated']}
               onClose={() => setSelectedScheme(null)}
             />
           )}

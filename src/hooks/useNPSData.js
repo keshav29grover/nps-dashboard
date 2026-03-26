@@ -17,9 +17,9 @@ export function useNPSData({ autoRefresh = false } = {}) {
     setError(null)
 
     try {
-      const navs = await fetchAllNAVs()
+      const { data: navs, metadata } = await fetchAllNAVs()
       setData(navs)
-      setLastUpdated(new Date())
+      setLastUpdated(metadata?.lastUpdated ?? null)
     } catch (e) {
       setError(e.message ?? 'Failed to fetch NAV data')
     } finally {
