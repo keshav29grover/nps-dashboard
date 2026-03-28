@@ -9,6 +9,11 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      '/proxy/hdfc': {
+        target:       'https://www.hdfcpension.com',
+        changeOrigin: true,
+        rewrite:      (path) => path.replace(/^\/proxy\/hdfc/, ''),
+      },
       '/proxy/nps': {
         target:       'https://npsnav.in',
         changeOrigin: true,

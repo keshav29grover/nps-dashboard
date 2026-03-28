@@ -74,6 +74,28 @@ Deno.serve(async (req) => {
 })
 
 async function fetchLatestData() {
+  try {
+    return await fetchOfficialHdfcLatestData()
+  } catch (officialError) {
+    console.warn("Official HDFC NAV fetch failed, falling back to npsnav.in", officialError)
+    return await fetchNpsNavLatestData()
+  }
+}
+
+async function fetchOfficialHdfcLatestData() {
+  const res = await fetch("https://www.hdfcpension.com/nav/")
+  if (!res.ok) throw new Error("Failed to fetch official HDFC NAV page")
+
+  const html = await res.text()
+  const parsed = parseOfficialHdfcLatestPage(html)
+  return {
+    lastUpdated: parsed.lastUpdated,
+    hdfcSchemes: parsed.rows,
+    source: "hdfcpension.com",
+  }
+}
+
+async function fetchNpsNavLatestData() {
   const res = await fetch("https://npsnav.in/api/latest")
   if (!res.ok) throw new Error("Failed to fetch latest NAV data")
 
@@ -90,7 +112,7 @@ async function fetchLatestData() {
 
   if (!lastUpdated) throw new Error("Latest NAV metadata is missing lastUpdated")
 
-  return { lastUpdated, hdfcSchemes }
+  return { lastUpdated, hdfcSchemes, source: "npsnav.in" }
 }
 
 async function fetchSubscriptions() {
@@ -174,6 +196,38 @@ function buildPayload(mode: "morning" | "night", lastUpdated: string, schemes: A
     body,
     url: "/",
   })
+}
+
+function parseOfficialHdfcLatestPage(html: string) {
+  const dateMatch = html.match(/NAV\s*(?:as on|As on)\s*<\/?[^>]*>\s*(\d{2}-\d{2}-\d{4})/i)
+    ?? html.match(/NAV\s*(?:as on|As on)\s*(\d{2}-\d{2}-\d{4})/i)
+
+  const lastUpdated = normDate(dateMatch?.[1] ?? "")
+  if (!lastUpdated) {
+    throw new Error("Could not parse official HDFC NAV date")
+  }
+
+  const rows = []
+  const rowRegex = /HDFC[^<\n]*?(?:Tier\s*I|Tier\s*II|Vatsalya Scheme|NPS Lite Scheme)[^<\n]*?(?:<\/t[dh]>\s*<t[dh][^>]*>|<\/[^>]+>\s*<[^>]+>|[\|\u00a0 ]+)(\d+\.\d{1,4})/gi
+
+  for (const match of html.matchAll(rowRegex)) {
+    const name = match[0]
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/(\d+\.\d{1,4}).*$/g, "")
+      .trim()
+    const nav = parseFloat(match[1])
+
+    if (!name || isNaN(nav)) continue
+    rows.push({ name, nav })
+  }
+
+  const deduped = Array.from(new Map(rows.map((row) => [row.name.toUpperCase(), row])).values())
+  if (!deduped.length) {
+    throw new Error("Could not parse official HDFC NAV rows")
+  }
+
+  return { lastUpdated, rows: deduped }
 }
 
 async function sendToAll(subscriptions: Array<{ id: string, endpoint: string, subscription: Record<string, unknown> }>, payload: string) {

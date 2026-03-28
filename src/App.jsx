@@ -37,6 +37,30 @@ function ErrorScreen({ message, onRetry }) {
   )
 }
 
+function SourceDisclaimer({ isMobile }) {
+  return (
+    <section style={{
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: isMobile ? '14px 16px' : '18px 20px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+    }}>
+      <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        Source And Disclaimer
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+        Latest NAV and historical NAV data shown in this application are sourced from publicly available pension fund disclosures and third-party aggregation endpoints used by this app. This is an independent informational tool and is not affiliated with, endorsed by, or operated by HDFC Pension, PFRDA, NPS Trust, or any pension fund manager.
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+        Users should verify the latest NAV and scheme information on the relevant official source before making investment decisions. Official names, logos, and trademarks remain the property of their respective owners.
+      </div>
+    </section>
+  )
+}
+
 const ASSET_TYPES = [
   { key: 'equity', label: 'Equity',    sublabel: 'Scheme E', color: 'var(--blue)',   dim: 'var(--blue-dim)' },
   { key: 'corp',   label: 'Corp Bond', sublabel: 'Scheme C', color: 'var(--purple)', dim: 'var(--purple-dim)' },
@@ -198,7 +222,11 @@ export default function App() {
             </div>
           )}
 
+          <SourceDisclaimer isMobile={isMobile} />
+
         </>}
+
+        {page === 'compare' && <SourceDisclaimer isMobile={isMobile} />}
 
       </main>
     </div>

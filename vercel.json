@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/proxy/hdfc/:path*",
+      "destination": "https://www.hdfcpension.com/:path*"
+    },
+    {
       "source": "/proxy/nps/:path*",
       "destination": "https://npsnav.in/:path*"
     },
