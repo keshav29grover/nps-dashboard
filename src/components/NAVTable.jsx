@@ -17,6 +17,20 @@ function detectType(name = '') {
   return null
 }
 
+function detectTier(name = '') {
+  const n = name.toUpperCase()
+  if (/\bTIER\s*II\b/.test(n) || /\bTIER\s*2\b/.test(n)) return 2
+  if (/\bTIER\s*I\b/.test(n) || /\bTIER\s*1\b/.test(n)) return 1
+  return 3
+}
+
+function compareValues(a, b, sortDir) {
+  if (a === b) return 0
+  if (a == null) return 1
+  if (b == null) return -1
+  return sortDir === 'asc' ? (a < b ? -1 : 1) : (a > b ? -1 : 1)
+}
+
 function TypeBadge({ name }) {
   const key = detectType(name)
   if (!key) return null
@@ -46,9 +60,12 @@ export default function NAVTable({ data, onSelect, isMobile }) {
     if (search.trim()) rows = rows.filter(d =>
       d['Scheme Name'].toLowerCase().includes(search.toLowerCase()))
     return [...rows].sort((a, b) => {
+      const tierOrder = detectTier(a['Scheme Name']) - detectTier(b['Scheme Name'])
+      if (tierOrder !== 0) return tierOrder
+
       const va = sortKey === 'NAV' ? parseFloat(a[sortKey]) : a[sortKey]
       const vb = sortKey === 'NAV' ? parseFloat(b[sortKey]) : b[sortKey]
-      return sortDir === 'asc' ? (va < vb ? -1 : 1) : (va > vb ? -1 : 1)
+      return compareValues(va, vb, sortDir)
     })
   }, [data, search, sortKey, sortDir, typeFilter])
 

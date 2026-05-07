@@ -11,6 +11,28 @@ const LINE_COLORS = ['#22c77b', '#4d9fff', '#f5a623', '#e879f9', '#ff4d6a', '#a7
 
 const RANGES = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12, '3Y': 36, 'All': null }
 
+function detectSchemeType(name = '') {
+  const n = name.toUpperCase()
+  if (n.includes('EQUITY') || n.includes('SCHEME E')) return 'E'
+  if (n.includes('CORP') || n.includes('CORPORATE') || n.includes('SCHEME C')) return 'C'
+  if (n.includes('GOVT') || n.includes('GOVERNMENT') || n.includes('SCHEME G')) return 'G'
+  if (n.includes('ALTERN') || n.includes('SCHEME A')) return 'A'
+  return null
+}
+
+function detectTier(name = '') {
+  const n = name.toUpperCase()
+  if (/\bTIER\s*II\b/.test(n) || /\bTIER\s*2\b/.test(n)) return 'T2'
+  if (/\bTIER\s*I\b/.test(n) || /\bTIER\s*1\b/.test(n)) return 'T1'
+  return 'NA'
+}
+
+function getSchemeBucket(name = '') {
+  const type = detectSchemeType(name) || 'NA'
+  const tier = detectTier(name)
+  return `${type}-${tier}`
+}
+
 // ── Merge histories by date ───────────────────────────────────────────────────
 function mergeHistories(seriesList) {
   const map = {}
@@ -68,7 +90,7 @@ function CustomTooltip({ active, payload, label, isNorm }) {
 }
 
 // ── Scheme search dropdown ────────────────────────────────────────────────────
-function SchemeSearch({ allSchemes, selected, onAdd, placeholder }) {
+function SchemeSearch({ allSchemes, selected, onAdd, placeholder, requiredBucket }) {
   const [query,  setQuery]  = useState('')
   const [open,   setOpen]   = useState(false)
   const ref = useRef()
@@ -82,6 +104,7 @@ function SchemeSearch({ allSchemes, selected, onAdd, placeholder }) {
   const results = query.trim().length > 1
     ? allSchemes
         .filter(s => !selected.includes(s['Scheme Code']))
+        .filter(s => !requiredBucket || getSchemeBucket(s['Scheme Name']) === requiredBucket)
         .filter(s => s['Scheme Name'].toLowerCase().includes(query.toLowerCase()) ||
                      s['PFM Name'].toLowerCase().includes(query.toLowerCase()))
         .slice(0, 8)
@@ -148,6 +171,8 @@ export default function ComparisonPage({ isMobile }) {
   }
 
   const removeScheme = (code) => setSeries(prev => prev.filter(s => s.code !== code))
+  const requiredBucket = series[0] ? getSchemeBucket(series[0].name) : null
+  const requiredSchemeType = series[0] ? detectSchemeType(series[0].name) : null
 
   // Merge + filter chart data
   const codes    = series.filter(s => !s.loading).map(s => s.code)
@@ -188,7 +213,14 @@ export default function ComparisonPage({ isMobile }) {
             allSchemes={allSchemes}
             selected={series.map(s => s.code)}
             onAdd={addScheme}
-            placeholder={loadingList ? 'Loading schemes...' : 'Search any scheme (e.g. SBI Equity, LIC Govt...)'}
+            requiredBucket={requiredBucket}
+            placeholder={
+              loadingList
+                ? 'Loading schemes...'
+                : requiredSchemeType
+                  ? `Search another Scheme ${requiredSchemeType} fund for comparison...`
+                  : 'Search any scheme (e.g. SBI Equity, LIC Govt...)'
+            }
           />
           {series.length < 6 && (
             <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>

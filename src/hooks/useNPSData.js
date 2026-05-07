@@ -64,6 +64,7 @@ export function useNPSData({ autoRefresh = false } = {}) {
     const maxNAV  = Math.max(...navs)
     const minNAV  = Math.min(...navs)
     const topScheme = data.find((d) => parseFloat(d.NAV) === maxNAV)
+    const lowScheme = data.find((d) => parseFloat(d.NAV) === minNAV)
     return {
       total:      data.length,
       pfmCount:   Object.keys(byPFM).length,
@@ -71,6 +72,7 @@ export function useNPSData({ autoRefresh = false } = {}) {
       maxNAV:     maxNAV.toFixed(4),
       minNAV:     minNAV.toFixed(4),
       topScheme,
+      lowScheme,
     }
   })()
 
